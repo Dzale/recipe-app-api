@@ -1,5 +1,5 @@
 from django import setup
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
@@ -7,16 +7,16 @@ from django.urls import reverse
 setup()
 
 
-class AdminSiteTests(TestCase):
+class AdminSiteTests(TransactionTestCase):
     def setUp(self) -> None:
         self.client = Client()
         self.admin_user = get_user_model().objects.create_superuser(
-            email='admin1@example.com',
+            email='admin@example.com',
             password='test123'
         )
         self.client.force_login(self.admin_user)
         self.user = get_user_model().objects.create_user(
-            email='user1@example.com',
+            email='user@example.com',
             password='test123',
             name='Test User'
         )

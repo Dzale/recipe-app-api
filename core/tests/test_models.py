@@ -1,11 +1,11 @@
 from django import setup
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.contrib.auth import get_user_model
 
 setup()
 
 
-class ModelTests(TestCase):
+class ModelTests(TransactionTestCase):
     def test_create_user_with_email_should_succeed(self):
         email = 'test@example.com'
         password = '123456'
