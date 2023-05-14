@@ -24,11 +24,12 @@ SECRET_KEY = "django-insecure-s&_xc)p6dq0mm381cyk!o%j1%tibg=@zd2hqec-zecxthyt&fg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['testserver', '127.0.0.1']
 
 # Application definition
 
 INSTALLED_APPS = [
+    "django_extensions",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -37,6 +38,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     'django_dump_die',
     "core",
+    'rest_framework',
+    'drf_spectacular'
 ]
 
 MIDDLEWARE = [
@@ -132,3 +135,5 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = 'core.User'
+
+REST_FRAMEWORK = dict(DEFAULT_SCHEMA_CLASS='drf_spectacular.openapi.AutoSchema', )
