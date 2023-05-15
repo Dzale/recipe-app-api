@@ -8,6 +8,8 @@ from rest_framework import status
 setup()
 
 CREATE_USER_URL = reverse('user-list')
+ME_URL = reverse('user-me')
+UPDATE_ME_URL = reverse('user-update-me')
 
 
 class PublicUserApiTests(TransactionTestCase):
@@ -58,3 +60,62 @@ class PublicUserApiTests(TransactionTestCase):
         self.assertEqual(0, get_user_model().objects.count())
 
         self.assertEqual(status.HTTP_400_BAD_REQUEST, res.status_code)
+
+    def test_me_without_authorization_should_return_401(self):
+        res = self.client.get(ME_URL)
+
+        self.assertEqual(status.HTTP_401_UNAUTHORIZED, res.status_code)
+
+    def test_update_me_without_authorization_should_return_401(self):
+        res = self.client.get(UPDATE_ME_URL)
+
+        self.assertEqual(status.HTTP_401_UNAUTHORIZED, res.status_code)
+
+
+class PrivateUserApiTests(TransactionTestCase):
+
+    def setUp(self) -> None:
+        payload = {
+            'email': 'test@example.com',
+            'password': 'test123',
+            'name': 'Test name'
+        }
+        self.user = get_user_model().objects.create_user(**payload)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_me_should_return_200(self):
+        res = self.client.get(ME_URL)
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+
+    def test_me_with_post_method_should_return_405(self):
+        res = self.client.post(ME_URL)
+
+        self.assertEqual(status.HTTP_405_METHOD_NOT_ALLOWED, res.status_code)
+
+    def test_update_me_should_return_200(self):
+        payload = {
+            'password': 'updated123',
+            'name': 'Updated name'
+        }
+
+        res = self.client.patch(UPDATE_ME_URL, payload)
+        
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+        self.user.refresh_from_db()
+
+        self.assertEqual(payload['name'], self.user.name)
+        self.assertTrue(self.user.check_password(payload['password']))
+
+    def test_update_me_without_password_should_return_200(self):
+        payload = {
+            'name': 'Updated name'
+        }
+
+        res = self.client.patch(UPDATE_ME_URL, payload)
+
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+        self.user.refresh_from_db()
+
+        self.assertEqual(payload['name'], self.user.name)
+        self.assertTrue(self.user.check_password('test123'))

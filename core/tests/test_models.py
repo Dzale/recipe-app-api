@@ -4,6 +4,9 @@ from django.contrib.auth import get_user_model
 
 setup()
 
+from core import models
+from decimal import Decimal
+
 
 class ModelTests(TransactionTestCase):
     def test_create_user_with_email_should_succeed(self):
@@ -49,3 +52,19 @@ class ModelTests(TransactionTestCase):
 
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_staff)
+
+    def test_create_recipe(self):
+        user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='test123'
+        )
+
+        recipe = models.Recipe.objects.create(
+            user=user,
+            title='Test recipe',
+            time_minutes=5,
+            price=Decimal('5.50'),
+            description='Test recipe desc'
+        )
+
+        self.assertEqual(str(recipe), recipe.title)
