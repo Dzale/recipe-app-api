@@ -8,11 +8,18 @@ from core import models
 from decimal import Decimal
 
 
+def create_user(email='user@example.com', password='test123'):
+    return get_user_model().objects.create_user(
+        email=email,
+        password=password
+    )
+
+
 class ModelTests(TransactionTestCase):
     def test_create_user_with_email_should_succeed(self):
         email = 'test@example.com'
         password = '123456'
-        user = get_user_model().objects.create_user(
+        user = create_user(
             email=email,
             password=password
         )
@@ -37,7 +44,7 @@ class ModelTests(TransactionTestCase):
         ]
 
         for email, expected in sample_emails:
-            user = get_user_model().objects.create_user(email=email, password='test123')
+            user = create_user(email=email, password='test123')
             self.assertEqual(expected, user.email)
 
     def test_create_user_without_email_should_raise_error(self):
@@ -54,10 +61,7 @@ class ModelTests(TransactionTestCase):
         self.assertTrue(user.is_staff)
 
     def test_create_recipe(self):
-        user = get_user_model().objects.create_user(
-            email='test@example.com',
-            password='test123'
-        )
+        user = create_user()
 
         recipe = models.Recipe.objects.create(
             user=user,
@@ -68,3 +72,13 @@ class ModelTests(TransactionTestCase):
         )
 
         self.assertEqual(str(recipe), recipe.title)
+
+    def test_create_tag(self):
+        user = create_user()
+
+        tag = models.Tag.objects.create(
+            user=user,
+            name='Test recipe',
+        )
+
+        self.assertEqual(str(tag), tag.name)
