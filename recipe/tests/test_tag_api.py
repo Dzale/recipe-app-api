@@ -18,6 +18,17 @@ def detail_url(tag_id):
     return reverse('tag-detail', args=[tag_id])
 
 
+def create_recipe(user, **params):
+    defaults = {
+        'title': 'Test title',
+        'time_minutes': 22,
+        'price': Decimal('5.25'),
+        'description': 'Test desc'
+    }
+    defaults.update(params)
+    return Recipe.objects.create(user=user, **defaults)
+
+
 def create_tag(user, **params):
     defaults = {
         'name': 'Test name',
@@ -125,3 +136,21 @@ class PrivateTagApiTests(TransactionTestCase):
         self.assertEqual(1, Tag.objects.count())
 
         self.assertEqual(status.HTTP_404_NOT_FOUND, res.status_code)
+
+    def test_filter_tags_assigned_to_recipes_should_return_200(self):
+        t1 = create_tag(user=self.user, name='T1')
+        t2 = create_tag(user=self.user, name='T2')
+        r1 = create_recipe(user=self.user)
+        r2 = create_recipe(user=self.user)
+        r1.tags.add(t1)
+        r2.tags.add(t1)
+
+        res = self.client.get(TAG_URL, {'assigned_only': 1})
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+        self.assertEqual(1, len(res.data))
+
+        s1 = TagSerializer(t1)
+        s2 = TagSerializer(t2)
+
+        self.assertIn(s1.data, res.data)
+        self.assertNotIn(s2.data, res.data)

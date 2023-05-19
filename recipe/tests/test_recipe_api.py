@@ -11,6 +11,9 @@ from decimal import Decimal
 from recipe.serializers import RecipeSerializer, RecipeDetailSerializer
 
 from core.models import Recipe, Tag, Ingredient
+import tempfile
+import os
+from PIL import Image
 
 RECIPES_URL = reverse('recipe-list')
 
@@ -33,6 +36,10 @@ def create_ingredient(user, **params):
     }
     defaults.update(params)
     return Ingredient.objects.create(user=user, **defaults)
+
+
+def image_upload_url(recipe_id):
+    return reverse('recipe-upload-image', args=[recipe_id])
 
 
 def create_recipe(user, **params):
@@ -88,6 +95,52 @@ class PrivateRecipeApiTests(TransactionTestCase):
         serialize = RecipeSerializer(recipes, many=True)
         self.assertEqual(2, len(res.data))
         self.assertEqual(res.data, serialize.data)
+
+    def test_retrieve_recipes_filter_by_tags_should_return_200(self):
+        r1 = create_recipe(user=self.user, title='R1')
+        r2 = create_recipe(user=self.user, title='R2')
+        t1 = create_tag(user=self.user, name='T1')
+        t2 = create_tag(user=self.user, name='T2')
+        r1.tags.add(t1)
+        r2.tags.add(t1)
+
+        r3 = create_recipe(user=self.user, title='R3')
+
+        params = {'tags': f'{t1.id},{t2.id}'}
+        res = self.client.get(RECIPES_URL, params)
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+        self.assertEqual(2, len(res.data))
+
+        s1 = RecipeSerializer(r1)
+        s2 = RecipeSerializer(r2)
+        s3 = RecipeSerializer(r3)
+
+        self.assertIn(s1.data, res.data)
+        self.assertIn(s2.data, res.data)
+        self.assertNotIn(s3.data, res.data)
+
+    def test_retrieve_recipes_filter_by_ingredients_should_return_200(self):
+        r1 = create_recipe(user=self.user, title='R1')
+        r2 = create_recipe(user=self.user, title='R2')
+        i1 = create_ingredient(user=self.user, name='I1')
+        i2 = create_ingredient(user=self.user, name='I2')
+        r1.ingredients.add(i1)
+        r2.ingredients.add(i1)
+
+        r3 = create_recipe(user=self.user, title='R3')
+
+        params = {'ingredients': f'{i1.id},{i2.id}'}
+        res = self.client.get(RECIPES_URL, params)
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+        self.assertEqual(2, len(res.data))
+
+        s1 = RecipeSerializer(r1)
+        s2 = RecipeSerializer(r2)
+        s3 = RecipeSerializer(r3)
+
+        self.assertIn(s1.data, res.data)
+        self.assertIn(s2.data, res.data)
+        self.assertNotIn(s3.data, res.data)
 
     def test_get_recipe_details_should_return_200(self):
         recipe = create_recipe(user=self.user)
@@ -251,7 +304,7 @@ class PrivateRecipeApiTests(TransactionTestCase):
         }
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Tag.objects.count())
-        res = self.client.patch(detail_url(recipe.id), payload)
+        res = self.client.patch(detail_url(recipe.id), payload, format='json')
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Tag.objects.count())
 
@@ -269,7 +322,7 @@ class PrivateRecipeApiTests(TransactionTestCase):
         }
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Tag.objects.count())
-        res = self.client.patch(detail_url(recipe.id), payload)
+        res = self.client.patch(detail_url(recipe.id), payload, format='json')
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Tag.objects.count())
 
@@ -336,7 +389,7 @@ class PrivateRecipeApiTests(TransactionTestCase):
         }
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(0, Ingredient.objects.count())
-        res = self.client.patch(detail_url(recipe.id), payload)
+        res = self.client.patch(detail_url(recipe.id), payload, format='json')
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Ingredient.objects.count())
 
@@ -357,7 +410,7 @@ class PrivateRecipeApiTests(TransactionTestCase):
         }
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Ingredient.objects.count())
-        res = self.client.patch(detail_url(recipe.id), payload)
+        res = self.client.patch(detail_url(recipe.id), payload, format='json')
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Ingredient.objects.count())
 
@@ -375,7 +428,7 @@ class PrivateRecipeApiTests(TransactionTestCase):
         }
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Ingredient.objects.count())
-        res = self.client.patch(detail_url(recipe.id), payload)
+        res = self.client.patch(detail_url(recipe.id), payload, format='json')
         self.assertEqual(1, Recipe.objects.count())
         self.assertEqual(1, Ingredient.objects.count())
 
@@ -383,3 +436,39 @@ class PrivateRecipeApiTests(TransactionTestCase):
 
         recipe = Recipe.objects.get(id=res.data['id'])
         self.assertEqual(0, recipe.ingredients.count())
+
+
+class ImageUploadTests(TransactionTestCase):
+    def setUp(self) -> None:
+        payload = {
+            'email': 'test@example.com',
+            'password': 'test123',
+            'name': 'Test name'
+        }
+        self.user = get_user_model().objects.create_user(**payload)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.recipe = create_recipe(user=self.user)
+
+    def tearDown(self) -> None:
+        self.recipe.image.delete()
+
+    def test_upload_image_should_return_200(self):
+        url = image_upload_url(self.recipe.id)
+        with tempfile.NamedTemporaryFile(suffix='.jpg') as image_file:
+            img = Image.new('RGB', (10, 10))
+            img.save(image_file, format='JPEG')
+            image_file.seek(0)
+            payload = {'image', image_file}
+            res = self.client.post(url, payload, format='multipart')
+            self.assertEqual(status.HTTP_200_OK, res.status_code)
+
+        self.recipe.refresh_from_db()
+        self.assertIn('image', res.data)
+        self.assertTrue(os.path.exists(self.recipe.image.path))
+
+    def test_upload_image_with_invalid_image_should_return_400(self):
+        url = image_upload_url(self.recipe.id)
+        payload = {'image', 'notanimage'}
+        res = self.client.post(url, payload, format='multipart')
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, res.status_code)

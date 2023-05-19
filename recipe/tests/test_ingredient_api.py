@@ -9,13 +9,25 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from recipe.serializers import IngredientSerializer
 
-from core.models import Ingredient
+from core.models import Ingredient, Recipe
+from decimal import Decimal
 
 INGREDIENT_URL = reverse('ingredient-list')
 
 
 def detail_url(ingredient_id):
     return reverse('ingredient-detail', args=[ingredient_id])
+
+
+def create_recipe(user, **params):
+    defaults = {
+        'title': 'Test title',
+        'time_minutes': 22,
+        'price': Decimal('5.25'),
+        'description': 'Test desc'
+    }
+    defaults.update(params)
+    return Recipe.objects.create(user=user, **defaults)
 
 
 def create_ingredient(user, **params):
@@ -125,3 +137,21 @@ class PrivateIngredientApiTests(TransactionTestCase):
         self.assertEqual(1, Ingredient.objects.count())
 
         self.assertEqual(status.HTTP_404_NOT_FOUND, res.status_code)
+
+    def test_filter_ingredients_assigned_to_recipes_should_return_200(self):
+        i1 = create_ingredient(user=self.user, name='I1')
+        i2 = create_ingredient(user=self.user, name='I2')
+        r1 = create_recipe(user=self.user)
+        r2 = create_recipe(user=self.user)
+        r1.ingredients.add(i1)
+        r2.ingredients.add(i1)
+
+        res = self.client.get(INGREDIENT_URL, {'assigned_only': 1})
+        self.assertEqual(status.HTTP_200_OK, res.status_code)
+        self.assertEqual(1, len(res.data))
+
+        s1 = IngredientSerializer(i1)
+        s2 = IngredientSerializer(i2)
+
+        self.assertIn(s1.data, res.data)
+        self.assertNotIn(s2.data, res.data)

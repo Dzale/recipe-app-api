@@ -5,6 +5,15 @@ from django.contrib.auth.models import (
     PermissionsMixin
 )
 from app import settings
+import uuid
+import os
+
+
+def recipe_image_file_path(instance, filename):
+    ext = os.path.splitext(filename)[1]
+    filename = f'{uuid.uuid4()}{ext}'
+
+    return os.path.join('uploads', 'recipe', filename)
 
 
 # Create your models here.
@@ -47,6 +56,7 @@ class Recipe(models.Model):
     description = models.TextField(max_length=2000, blank=True)
     tags = models.ManyToManyField('Tag')
     ingredients = models.ManyToManyField('Ingredient')
+    image = models.ImageField(null=True, upload_to=recipe_image_file_path)
 
     def __str__(self):
         return self.title
